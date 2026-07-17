@@ -4,7 +4,7 @@
  */
 
 import { Users, BookOpen, Layers, ClipboardCheck, Calendar, Award, ArrowRight, UserCheck, School } from 'lucide-react';
-import { Guru, Siswa, Kelas, JurnalMengajar, Absensi, MengajarMapel, AlokasiWaktu } from '../types';
+import { Guru, Siswa, Kelas, JurnalMengajar, Absensi, MengajarMapel, AlokasiWaktu, Profil } from '../types';
 
 interface DashboardAdminProps {
   guru: Guru[];
@@ -15,6 +15,7 @@ interface DashboardAdminProps {
   currentUser?: Guru | null;
   mengajar?: MengajarMapel[];
   alokasi?: AlokasiWaktu[];
+  profil?: Profil;
   onNavigate?: (menu: string) => void;
 }
 
@@ -27,6 +28,7 @@ export default function DashboardAdmin({
   currentUser,
   mengajar = [],
   alokasi = [],
+  profil,
   onNavigate
 }: DashboardAdminProps) {
   const isAdmin = currentUser?.role === 'Admin';
@@ -56,15 +58,24 @@ export default function DashboardAdmin({
       <div className="space-y-6 animate-fade-in font-sans">
         {/* Banner Welcome */}
         <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-6 relative overflow-hidden shadow-xs">
-          <div className="absolute right-0 top-0 opacity-5 translate-x-12 -translate-y-6">
-            <School className="w-64 h-64" />
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-15 w-24 h-24 flex items-center justify-center pointer-events-none">
+            {profil?.logoUrl ? (
+              <img
+                src={profil.logoUrl}
+                alt="Logo Madrasah"
+                className="max-w-full max-h-full object-contain filter brightness-200 contrast-100"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <School className="w-20 h-20 text-white" />
+            )}
           </div>
-          <div className="relative z-10 space-y-1">
+          <div className="relative z-10 space-y-1 max-w-[80%]">
             <h2 className="text-xl md:text-2xl font-black text-white font-sans tracking-tight uppercase">
               Selamat Datang Kembali, {currentUser?.nama}!
             </h2>
             <p className="text-xs text-slate-400 font-semibold font-sans uppercase tracking-wider">
-              Sistem Informasi Administrasi Guru & Kurikulum MTs Al-Ikhlas
+              Sistem Informasi Administrasi Guru & Kurikulum {profil?.nama || 'MTs Al-Ikhlas'}
             </p>
           </div>
         </div>
@@ -209,18 +220,27 @@ export default function DashboardAdmin({
     <div className="space-y-6 animate-fade-in font-sans">
       {/* Banner Welcome */}
       <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-6 relative overflow-hidden shadow-xs">
-        <div className="absolute right-0 top-0 opacity-5 translate-x-12 -translate-y-6">
-          <School className="w-64 h-64" />
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-15 w-24 h-24 flex items-center justify-center pointer-events-none">
+          {profil?.logoUrl ? (
+            <img
+              src={profil.logoUrl}
+              alt="Logo Madrasah"
+              className="max-w-full max-h-full object-contain filter brightness-200 contrast-100"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <School className="w-20 h-20 text-white" />
+          )}
         </div>
-        <div className="relative z-10 space-y-1">
-          <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase bg-emerald-600 text-white rounded-md tracking-wider">
+        <div className="relative z-10 space-y-1 max-w-[80%]">
+          <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase bg-emerald-600 text-white rounded-md tracking-wider inline-block">
             {isWaliKelas ? `Guru & Wali Kelas ${classManaged?.namaKelas}` : 'Guru Mata Pelajaran'}
           </span>
           <h2 className="text-xl md:text-2xl font-black text-white font-sans tracking-tight">
             Assalamu'alaikum, {currentUser?.nama}
           </h2>
           <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-            Sistem Administrasi Guru • TA {currentUser ? '2026/2027' : ''}
+            Sistem Administrasi Guru • {profil?.nama || 'MTs Al-Ikhlas'}
           </p>
         </div>
       </div>

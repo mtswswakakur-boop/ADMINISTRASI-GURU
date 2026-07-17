@@ -504,6 +504,7 @@ export default function App() {
             currentUser={currentUser}
             mengajar={mengajar}
             alokasi={alokasi}
+            profil={profil}
             onNavigate={(menu) => setActiveMenu(menu)}
           />
         );
@@ -675,13 +676,24 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-md border border-slate-100 p-8 space-y-6">
-          <div className="text-center">
-            <div className="bg-emerald-50 text-emerald-700 p-3.5 rounded-full inline-flex items-center justify-center mb-3.5">
-              <GraduationCap className="h-10 w-10" />
-            </div>
+          <div className="text-center flex flex-col items-center">
+            {profil.logoUrl ? (
+              <div className="w-16 h-16 bg-white border border-slate-150 rounded-xl overflow-hidden shadow-sm flex items-center justify-center p-1.5 mb-3">
+                <img
+                  src={profil.logoUrl}
+                  alt="Logo Madrasah"
+                  className="max-w-full max-h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            ) : (
+              <div className="bg-emerald-50 text-emerald-700 p-3.5 rounded-full inline-flex items-center justify-center mb-3.5">
+                <GraduationCap className="h-10 w-10" />
+              </div>
+            )}
             <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">ADMINISTRASI GURU</h1>
             <p className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wider">
-              Sistem Manajemen Madrasah Tsanawiyah
+              {profil.nama || 'Sistem Manajemen Madrasah Tsanawiyah'}
             </p>
           </div>
 
@@ -774,12 +786,7 @@ export default function App() {
             </button>
           </form>
 
-          <div className="border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
-            <p className="font-semibold flex items-center justify-center gap-1">
-              <ShieldAlert className="h-3 w-3" /> Akun Demo:
-            </p>
-            <p className="mt-1 font-mono">admin/admin | wali1/wali | guru1/guru</p>
-          </div>
+
         </div>
       </div>
     );
@@ -794,13 +801,24 @@ export default function App() {
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-slate-900 text-slate-300 border-r border-slate-800 flex-shrink-0">
         <div className="p-4 border-b border-slate-800 flex items-center gap-2">
-          <div className="bg-emerald-600 text-white p-1.5 rounded-lg flex items-center justify-center">
-            <GraduationCap className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-sm font-black text-white tracking-wider leading-none">ADMINISTRASI GURU</h1>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5 block">
-              {profil.nama.substring(0, 18)}...
+          {profil.logoUrl ? (
+            <div className="w-9 h-12 bg-white rounded-md overflow-hidden flex items-center justify-center p-0.5 flex-shrink-0 shadow-xs">
+              <img
+                src={profil.logoUrl}
+                alt="Logo"
+                className="max-w-full max-h-full object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          ) : (
+            <div className="bg-emerald-600 text-white p-1.5 rounded-lg flex items-center justify-center flex-shrink-0">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-sm font-black text-white tracking-wider leading-none truncate">ADMINISTRASI GURU</h1>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 block truncate" title={profil.nama}>
+              {profil.nama}
             </span>
           </div>
         </div>
@@ -1164,9 +1182,17 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex px-2.5 py-1 text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-lg select-none uppercase tracking-wide">
-              {profil.nama}
-            </span>
+            <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-lg select-none uppercase tracking-wide">
+              {profil.logoUrl && (
+                <img
+                  src={profil.logoUrl}
+                  alt="Logo"
+                  className="w-4 h-5 object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <span>{profil.nama}</span>
+            </div>
             <div className="w-px h-6 bg-slate-100 hidden sm:block"></div>
             <div className="flex items-center gap-2">
               <div className="bg-slate-100 p-1.5 rounded-full text-slate-600">
@@ -1191,8 +1217,24 @@ export default function App() {
           <div className="bg-slate-900 w-72 max-w-xs h-full flex flex-col p-4 space-y-4 animate-slide-right text-slate-300">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-emerald-600" />
-                <span className="text-sm font-black text-white">ADMINISTRASI GURU</span>
+                {profil.logoUrl ? (
+                  <div className="w-8 h-11 bg-white rounded-md overflow-hidden flex items-center justify-center p-0.5 flex-shrink-0 shadow-xs">
+                    <img
+                      src={profil.logoUrl}
+                      alt="Logo"
+                      className="max-w-full max-h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                ) : (
+                  <GraduationCap className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <span className="text-sm font-black text-white block leading-none">ADMINISTRASI GURU</span>
+                  <span className="text-[9px] text-slate-500 font-bold block uppercase truncate mt-1" title={profil.nama}>
+                    {profil.nama}
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}

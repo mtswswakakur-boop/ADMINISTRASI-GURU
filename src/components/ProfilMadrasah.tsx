@@ -37,12 +37,12 @@ export default function ProfilMadrasah({ profil, onSave }: ProfilMadrasahProps) 
           {/* Logo preview and photo link placeholder */}
           <div className="lg:col-span-4 flex flex-col items-center p-6 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 block">Logo Madrasah (Ukuran 4x6)</span>
-            <div className="w-32 h-44 bg-slate-200 border border-slate-300 rounded-lg overflow-hidden shadow-xs flex items-center justify-center relative">
+            <div className="w-48 h-64 bg-white border border-slate-300 rounded-xl overflow-hidden shadow-xs flex items-center justify-center relative p-3">
               {formData.logoUrl ? (
                 <img
                   src={formData.logoUrl}
                   alt="Logo Madrasah"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
                 />
               ) : (
