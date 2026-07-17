@@ -13,9 +13,10 @@ interface RekapNilaiFormatifProps {
   siswa: Siswa[];
   kelas: Kelas[];
   tahunAjaran: string;
+  semester?: string;
 }
 
-export default function RekapNilaiFormatif({ nilaiFormatif, siswa, kelas, tahunAjaran }: RekapNilaiFormatifProps) {
+export default function RekapNilaiFormatif({ nilaiFormatif, siswa, kelas, tahunAjaran, semester = 'Ganjil' }: RekapNilaiFormatifProps) {
   const [selectedTingkat, setSelectedTingkat] = useState<'VII' | 'VIII' | 'IX' | ''>('');
   const [selectedKelasId, setSelectedKelasId] = useState('');
   const [selectedMapel, setSelectedMapel] = useState('');
@@ -102,7 +103,7 @@ export default function RekapNilaiFormatif({ nilaiFormatif, siswa, kelas, tahunA
         <div className="text-center mb-6">
           <h2 className="text-xl font-bold uppercase tracking-wide">Rekapitulasi Nilai Formatif Siswa (UH)</h2>
           <h3 className="text-sm font-semibold uppercase text-slate-600 mt-1">
-            Kelas: {appliedKelasId} • Mapel: {appliedMapel} • TA: {tahunAjaran}
+            Kelas: {appliedKelasId} • Mapel: {appliedMapel} • Semester: {semester} • TA: {tahunAjaran}
           </h3>
           <div className="w-full border-b-2 border-slate-900 my-4"></div>
         </div>

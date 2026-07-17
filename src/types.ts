@@ -111,6 +111,8 @@ export interface NilaiFormatif {
   uh4: number | '';
   uh5: number | '';
   uh6: number | '';
+  tahunAjaran?: string;
+  semester?: string;
 }
 
 export interface NilaiSumatif {
@@ -121,6 +123,8 @@ export interface NilaiSumatif {
   mapel: string;
   sts: number | ''; // Penilaian Tengah Semester / STS
   asas: number | ''; // Asesmen Sumatif Akhir Semester / ASAS
+  tahunAjaran?: string;
+  semester?: string;
 }
 
 export interface AlokasiWaktu {

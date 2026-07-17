@@ -15,7 +15,7 @@ export const DEFAULT_PROFIL: Profil = {
   provinsi: 'Jawa Timur',
   pimpinanNama: 'H. Mochammad Hasan, M.Pd.I',
   pimpinanNip: '197508122003121002',
-  logoUrl: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?auto=format&fit=crop&q=80&w=200',
+  logoUrl: '/src/assets/images/mts_logo_1784287858145.jpg',
   tahunAjaran: '2026/2027',
   semester: 'Ganjil'
 };

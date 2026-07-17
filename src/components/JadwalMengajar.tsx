@@ -25,8 +25,8 @@ export default function JadwalMengajarComponent({
   onSaveJadwal,
   currentUserId
 }: JadwalProps) {
-  const days: Array<'Senin' | 'Selasa' | 'Rabu' | 'Kamis' | 'Jumat' | 'Sabtu'> = [
-    'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'
+  const days: Array<'Sabtu' | 'Minggu' | 'Senin' | 'Selasa' | 'Rabu' | 'Kamis'> = [
+    'Sabtu', 'Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis'
   ];
   const hours = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -39,7 +39,7 @@ export default function JadwalMengajarComponent({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<JadwalMengajar | null>(null);
 
-  const [formHari, setFormHari] = useState<'Senin' | 'Selasa' | 'Rabu' | 'Kamis' | 'Jumat' | 'Sabtu'>('Senin');
+  const [formHari, setFormHari] = useState<'Sabtu' | 'Minggu' | 'Senin' | 'Selasa' | 'Rabu' | 'Kamis'>('Sabtu');
   const [formJamKe, setFormJamKe] = useState<number>(1);
   const [formKelasId, setFormKelasId] = useState<string>(kelasList[0]?.id || '');
   const [formMapel, setFormMapel] = useState<string>(MAPEL_LIST[0] || '');
@@ -47,7 +47,7 @@ export default function JadwalMengajarComponent({
 
   const openAddModal = () => {
     setEditingItem(null);
-    setFormHari('Senin');
+    setFormHari('Sabtu');
     setFormJamKe(1);
     if (viewType === 'kelas') setFormKelasId(selectedKelasId);
     else if (guruList.some(g => g.id === selectedGuruId)) setFormGuruId(selectedGuruId);

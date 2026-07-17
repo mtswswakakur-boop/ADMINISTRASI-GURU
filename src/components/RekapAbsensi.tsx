@@ -12,9 +12,10 @@ interface RekapAbsensiProps {
   siswa: Siswa[];
   kelas: Kelas[];
   tahunAjaran: string;
+  semester?: string;
 }
 
-export default function RekapAbsensi({ absensi, siswa, kelas, tahunAjaran }: RekapAbsensiProps) {
+export default function RekapAbsensi({ absensi, siswa, kelas, tahunAjaran, semester = 'Ganjil' }: RekapAbsensiProps) {
   const [selectedTingkat, setSelectedTingkat] = useState<'VII' | 'VIII' | 'IX' | ''>('');
   const [selectedKelasId, setSelectedKelasId] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
@@ -92,7 +93,7 @@ export default function RekapAbsensi({ absensi, siswa, kelas, tahunAjaran }: Rek
         <div className="text-center mb-6">
           <h2 className="text-xl font-bold uppercase tracking-wide">Laporan Rekapitulasi Presensi Siswa</h2>
           <h3 className="text-sm font-semibold uppercase text-slate-600 mt-1">
-            Kelas: {selectedKelasId} • Semester: Ganjil • TA: {tahunAjaran}
+            Kelas: {selectedKelasId} • Semester: {semester} • TA: {tahunAjaran}
           </h3>
           <div className="w-full border-b-2 border-slate-900 my-4"></div>
         </div>

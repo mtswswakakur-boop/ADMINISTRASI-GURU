@@ -5,22 +5,36 @@
 
 import React, { useState } from 'react';
 import { ClipboardCheck, Save, Calendar } from 'lucide-react';
-import { Siswa, Kelas, Absensi, JurnalMengajar } from '../types';
+import { Siswa, Kelas, Absensi, JurnalMengajar, MengajarMapel } from '../types';
 import { MAPEL_LIST } from '../data';
 
 interface InputAbsensiProps {
   siswa: Siswa[];
   kelas: Kelas[];
   currentUser: any;
+  mengajar: MengajarMapel[];
   onSaveAbsensiAndJurnal: (absList: Absensi[], jur: JurnalMengajar) => void;
 }
 
-export default function InputAbsensi({ siswa, kelas, currentUser, onSaveAbsensiAndJurnal }: InputAbsensiProps) {
-  const [hari, setHari] = useState('Senin');
-  const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
+export default function InputAbsensi({ siswa, kelas, currentUser, mengajar, onSaveAbsensiAndJurnal }: InputAbsensiProps) {
+  const getIndonesianDayName = (dateString: string): string => {
+    if (!dateString) return 'Senin';
+    const date = new Date(dateString);
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    return days[date.getDay()];
+  };
+
+  const initialDate = new Date().toISOString().split('T')[0];
+  const [tanggal, setTanggal] = useState(initialDate);
+  const [hari, setHari] = useState(getIndonesianDayName(initialDate));
   const [selectedTingkat, setSelectedTingkat] = useState<'VII' | 'VIII' | 'IX'>('VII');
   const [selectedKelasId, setSelectedKelasId] = useState('');
   const [selectedMapel, setSelectedMapel] = useState('');
+
+  // Filter mapel based on what is taught by the logged-in user
+  const allowedMapels = currentUser && currentUser.role !== 'Admin'
+    ? Array.from(new Set(mengajar.filter(m => m.guruId === currentUser.id).map(m => m.mapel)))
+    : MAPEL_LIST;
 
   // Jurnal details associated with this lesson block
   const [materi, setMateri] = useState('');
@@ -50,6 +64,11 @@ export default function InputAbsensi({ siswa, kelas, currentUser, onSaveAbsensiA
     e.preventDefault();
     if (!selectedKelasId || !selectedMapel || !materi || !metode) {
       alert('Mohon isi seluruh data absensi, mata pelajaran, materi, dan metode!');
+      return;
+    }
+
+    if (hari === 'Jumat') {
+      alert('Maaf, hari Jumat adalah hari libur/non-efektif. Silakan pilih hari efektif (Sabtu - Kamis).');
       return;
     }
 
@@ -102,19 +121,12 @@ export default function InputAbsensi({ siswa, kelas, currentUser, onSaveAbsensiA
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
           <div>
             <label className="text-xs font-semibold text-slate-600 block mb-1">Hari</label>
-            <select
+            <input
+              type="text"
+              readOnly
               value={hari}
-              onChange={e => setHari(e.target.value)}
-              className="w-full text-xs md:text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-semibold text-slate-800"
-            >
-              <option value="Senin">Senin</option>
-              <option value="Selasa">Selasa</option>
-              <option value="Rabu">Rabu</option>
-              <option value="Kamis">Kamis</option>
-              <option value="Jumat">Jumat</option>
-              <option value="Sabtu">Sabtu</option>
-              <option value="Minggu">Minggu</option>
-            </select>
+              className="w-full text-xs md:text-sm bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-bold focus:outline-hidden"
+            />
           </div>
 
           <div>
@@ -123,9 +135,19 @@ export default function InputAbsensi({ siswa, kelas, currentUser, onSaveAbsensiA
               type="date"
               required
               value={tanggal}
-              onChange={e => setTanggal(e.target.value)}
+              onChange={e => {
+                const newDate = e.target.value;
+                setTanggal(newDate);
+                const dayName = getIndonesianDayName(newDate);
+                setHari(dayName);
+              }}
               className="w-full text-xs md:text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-semibold text-slate-800"
             />
+            {hari === 'Jumat' && (
+              <div className="text-[10px] text-rose-600 font-bold mt-1">
+                ⚠️ Hari Jumat adalah hari libur (Non-Efektif)!
+              </div>
+            )}
           </div>
 
           <div>
@@ -168,10 +190,15 @@ export default function InputAbsensi({ siswa, kelas, currentUser, onSaveAbsensiA
               className="w-full text-xs md:text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-bold text-slate-800"
             >
               <option value="">-- Pilih Mapel --</option>
-              {MAPEL_LIST.map(m => (
+              {allowedMapels.map(m => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
+            {allowedMapels.length === 0 && currentUser.role !== 'Admin' && (
+              <p className="text-[10px] text-amber-600 font-semibold mt-1">
+                Anda tidak memiliki jadwal mengajar terdaftar.
+              </p>
+            )}
           </div>
         </div>
 

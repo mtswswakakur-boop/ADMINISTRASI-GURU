@@ -21,7 +21,9 @@ import {
   Menu,
   X,
   User,
-  ShieldAlert
+  ShieldAlert,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 
 // Core State Imports
@@ -312,6 +314,25 @@ export default function App() {
   const [activeMenu, setActiveMenu] = useState<string>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Dropdown States for Sidebar Menus
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(() => {
+    const isMenuIn = (menus: string[]) => menus.includes(activeMenu);
+    return {
+      akademik: isMenuIn(['kaldik', 'alokasi', 'modul', 'guru', 'mengajar', 'jadwal-mengajar']),
+      kelasSiswa: isMenuIn(['kelas', 'siswa-aktif', 'siswa-riwayat']),
+      rekap: isMenuIn(['rekap-absensi', 'rekap-jurnal', 'rekap-nilai-formatif', 'rekap-nilai-sumatif']),
+      waliKelas: isMenuIn(['rekap-absensi', 'rekap-nilai-formatif', 'rekap-nilai-sumatif']),
+      guruProfil: isMenuIn(['profil-guru', 'jadwal-mengajar']),
+      guruAgenda: isMenuIn(['input-absensi', 'input-jurnal']),
+      guruAsesmen: isMenuIn(['input-nilai-formatif', 'input-nilai-sumatif']),
+      guruReferensi: isMenuIn(['kaldik', 'alokasi', 'modul']),
+    };
+  });
+
+  const toggleDropdown = (key: string) => {
+    setOpenDropdowns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   // Authentication Handler
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -330,6 +351,14 @@ export default function App() {
         alert(`User ditemukan, tetapi hak akses Anda di sistem adalah: ${userMatch.role}`);
         return;
       }
+      
+      // Update profil academic year and semester to match selection
+      setProfil(prev => ({
+        ...prev,
+        tahunAjaran: selectedTahun,
+        semester: selectedSemester
+      }));
+      
       setCurrentUser(userMatch);
       setActiveMenu('dashboard');
     } else {
@@ -488,6 +517,42 @@ export default function App() {
     setKaldik(prev => prev.filter(k => k.id !== id));
   };
 
+  // Helper to determine if a date falls within the selected academic period
+  const isDateInAcademicPeriod = (dateString: string, academicYear: string, semester: 'Ganjil' | 'Genap'): boolean => {
+    if (!dateString) return false;
+    const parts = academicYear.split('/');
+    if (parts.length !== 2) return true;
+    const yearStart = parseInt(parts[0], 10);
+    const yearEnd = parseInt(parts[1], 10);
+
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 1-12
+
+    if (semester === 'Ganjil') {
+      // Ganjil: July to December of start year
+      return year === yearStart && month >= 7 && month <= 12;
+    } else {
+      // Genap: January to June of end year
+      return year === yearEnd && month >= 1 && month <= 6;
+    }
+  };
+
+  // Filter lists based on selected academic year and semester
+  const filteredJurnal = jurnal.filter(j => isDateInAcademicPeriod(j.tanggal, selectedTahun, selectedSemester));
+  const filteredAbsensi = absensi.filter(a => isDateInAcademicPeriod(a.tanggal, selectedTahun, selectedSemester));
+  const filteredNilaiFormatif = nilaiFormatif.filter(n => (!n.tahunAjaran || n.tahunAjaran === selectedTahun) && (!n.semester || n.semester === selectedSemester));
+  const filteredNilaiSumatif = nilaiSumatif.filter(n => (!n.tahunAjaran || n.tahunAjaran === selectedTahun) && (!n.semester || n.semester === selectedSemester));
+
+  // If teacher / homeroom teacher, filter class and student list for Homeroom Reports
+  const filteredKelasWali = currentUser && currentUser.role !== 'Admin'
+    ? kelas.filter(k => k.waliKelasId === currentUser.id)
+    : kelas;
+
+  const filteredSiswaWali = currentUser && currentUser.role !== 'Admin'
+    ? siswa.filter(s => kelas.some(k => k.id === s.kelasId && k.waliKelasId === currentUser.id))
+    : siswa;
+
   // Rendering Routing Views
   const renderActiveView = () => {
     if (!currentUser) return null;
@@ -499,8 +564,8 @@ export default function App() {
             siswa={siswa}
             guru={guru}
             kelas={kelas}
-            jurnal={jurnal}
-            absensi={absensi}
+            jurnal={filteredJurnal}
+            absensi={filteredAbsensi}
             currentUser={currentUser}
             mengajar={mengajar}
             alokasi={alokasi}
@@ -577,15 +642,46 @@ export default function App() {
       case 'siswa-riwayat':
         return <RiwayatSiswa riwayat={mutasiHistory} onBatalMutasi={handleBatalMutasi} />;
       case 'rekap-absensi':
-        return <RekapAbsensi absensi={absensi} siswa={siswa} kelas={kelas} tahunAjaran={selectedTahun} />;
+        return (
+          <RekapAbsensi
+            absensi={filteredAbsensi}
+            siswa={filteredSiswaWali}
+            kelas={filteredKelasWali}
+            tahunAjaran={selectedTahun}
+            semester={selectedSemester}
+          />
+        );
       case 'rekap-jurnal':
-        return <RekapJurnal jurnal={jurnal} guru={guru} kelas={kelas} onEditJurnal={(id, up) => {
-          setJurnal(prev => prev.map(j => j.id === id ? { ...j, ...up } : j));
-        }} />;
+        return (
+          <RekapJurnal
+            jurnal={filteredJurnal}
+            guru={guru}
+            kelas={kelas}
+            onEditJurnal={(id, up) => {
+              setJurnal(prev => prev.map(j => j.id === id ? { ...j, ...up } : j));
+            }}
+          />
+        );
       case 'rekap-nilai-formatif':
-        return <RekapNilaiFormatif nilaiFormatif={nilaiFormatif} siswa={siswa} kelas={kelas} tahunAjaran={selectedTahun} />;
+        return (
+          <RekapNilaiFormatif
+            nilaiFormatif={filteredNilaiFormatif}
+            siswa={filteredSiswaWali}
+            kelas={filteredKelasWali}
+            tahunAjaran={selectedTahun}
+            semester={selectedSemester}
+          />
+        );
       case 'rekap-nilai-sumatif':
-        return <RekapNilaiSumatif nilaiSumatif={nilaiSumatif} siswa={siswa} kelas={kelas} tahunAjaran={selectedTahun} />;
+        return (
+          <RekapNilaiSumatif
+            nilaiSumatif={filteredNilaiSumatif}
+            siswa={filteredSiswaWali}
+            kelas={filteredKelasWali}
+            tahunAjaran={selectedTahun}
+            semester={selectedSemester}
+          />
+        );
       case 'export-gs':
         return (
           <AppsScriptExport
@@ -608,6 +704,7 @@ export default function App() {
             siswa={siswa}
             kelas={kelas}
             currentUser={currentUser}
+            mengajar={mengajar}
             onSaveAbsensiAndJurnal={handleSaveAbsensiAndJurnal}
           />
         );
@@ -616,6 +713,7 @@ export default function App() {
           <InputJurnal
             kelas={kelas}
             currentUser={currentUser}
+            mengajar={mengajar}
             onSaveJurnal={handleSaveJurnal}
           />
         );
@@ -625,7 +723,11 @@ export default function App() {
             nilaiFormatif={nilaiFormatif}
             siswa={siswa}
             kelas={kelas}
+            currentUser={currentUser}
+            mengajar={mengajar}
             onSaveNilaiFormatif={handleSaveNilaiFormatif}
+            tahunAjaran={selectedTahun}
+            semester={selectedSemester}
           />
         );
       case 'input-nilai-sumatif':
@@ -634,7 +736,11 @@ export default function App() {
             nilaiSumatif={nilaiSumatif}
             siswa={siswa}
             kelas={kelas}
+            currentUser={currentUser}
+            mengajar={mengajar}
             onSaveNilaiSumatif={handleSaveNilaiSumatif}
+            tahunAjaran={selectedTahun}
+            semester={selectedSemester}
           />
         );
       case 'profil-guru':
@@ -675,10 +781,11 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-md border border-slate-100 p-8 space-y-6">
-          <div className="text-center flex flex-col items-center">
+        <div className="max-w-sm w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-6 space-y-5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-emerald-600"></div>
+          <div className="text-center flex flex-col items-center pt-2">
             {profil.logoUrl ? (
-              <div className="w-16 h-16 bg-white border border-slate-150 rounded-xl overflow-hidden shadow-sm flex items-center justify-center p-1.5 mb-3">
+              <div className="w-14 h-14 bg-white border border-slate-150 rounded-xl overflow-hidden shadow-sm flex items-center justify-center p-1.5 mb-2.5">
                 <img
                   src={profil.logoUrl}
                   alt="Logo Madrasah"
@@ -687,19 +794,19 @@ export default function App() {
                 />
               </div>
             ) : (
-              <div className="bg-emerald-50 text-emerald-700 p-3.5 rounded-full inline-flex items-center justify-center mb-3.5">
-                <GraduationCap className="h-10 w-10" />
+              <div className="bg-emerald-50 text-emerald-700 p-3 rounded-full inline-flex items-center justify-center mb-2.5">
+                <GraduationCap className="h-8 w-8" />
               </div>
             )}
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">ADMINISTRASI GURU</h1>
-            <p className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wider">
+            <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase">ADMINISTRASI GURU</h1>
+            <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-wider">
               {profil.nama || 'Sistem Manajemen Madrasah Tsanawiyah'}
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                 Hak Akses Anda
               </label>
               <div className="grid grid-cols-2 gap-1 bg-slate-50 p-1 rounded-xl border border-slate-150">
@@ -708,7 +815,7 @@ export default function App() {
                     key={role}
                     type="button"
                     onClick={() => setLoginRole(role)}
-                    className={`py-1.5 text-center text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    className={`py-1 text-center text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                       loginRole === role
                         ? 'bg-emerald-600 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-800'
@@ -721,7 +828,7 @@ export default function App() {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                 Username / ID
               </label>
               <input
@@ -730,12 +837,12 @@ export default function App() {
                 placeholder="e.g. admin, wali1, guru1"
                 value={usernameInput}
                 onChange={e => setUsernameInput(e.target.value)}
-                className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-medium"
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-medium"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                 Password
               </label>
               <input
@@ -744,19 +851,19 @@ export default function App() {
                 placeholder="••••••••"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
-                className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-medium"
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-medium"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                   Tahun Ajaran
                 </label>
                 <select
                   value={selectedTahun}
                   onChange={e => setSelectedTahun(e.target.value)}
-                  className="w-full text-xs md:text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-semibold"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-semibold"
                 >
                   <option value="2025/2026">2025/2026</option>
                   <option value="2026/2027">2026/2027</option>
@@ -764,13 +871,13 @@ export default function App() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                   Semester
                 </label>
                 <select
                   value={selectedSemester}
                   onChange={e => setSelectedSemester(e.target.value as any)}
-                  className="w-full text-xs md:text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-semibold"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-semibold"
                 >
                   <option value="Ganjil">Ganjil</option>
                   <option value="Genap">Genap</option>
@@ -780,13 +887,11 @@ export default function App() {
 
             <button
               type="submit"
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-md cursor-pointer uppercase tracking-wider"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-all shadow-md cursor-pointer uppercase tracking-wider"
             >
               Masuk Ke Sistem
             </button>
           </form>
-
-
         </div>
       </div>
     );
@@ -824,7 +929,7 @@ export default function App() {
         </div>
 
         {/* Navigation Elements based on Roles */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-thin">
+        <nav className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin">
           {/* COMMON ACTIONS */}
           <button
             onClick={() => setActiveMenu('dashboard')}
@@ -840,7 +945,7 @@ export default function App() {
 
           {currentUser.role === 'Admin' && (
             <>
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
+              <div className="pt-2 pb-1 text-[10px] font-bold text-slate-500 tracking-wider">
                 Pengaturan Utama
               </div>
               <button
@@ -853,134 +958,163 @@ export default function App() {
                 Profil Madrasah
               </button>
 
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Akademik & Guru
+              {/* Dropdown Akademik & Guru */}
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleDropdown('akademik')}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                    Akademik & Guru
+                  </span>
+                  {openDropdowns.akademik ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                </button>
+                {openDropdowns.akademik && (
+                  <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                    <button
+                      onClick={() => setActiveMenu('kaldik')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'kaldik' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Kaldik Pendidikan
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('alokasi')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'alokasi' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Alokasi Waktu
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('modul')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'modul' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Modul Ajar RPP
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('guru')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'guru' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Data Guru
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('mengajar')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'mengajar' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Pembagian Mengajar
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('jadwal-mengajar')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'jadwal-mengajar' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Jadwal Mengajar
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setActiveMenu('kaldik')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'kaldik' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Calendar className="h-4 w-4" />
-                Kaldik Pendidikan
-              </button>
-              <button
-                onClick={() => setActiveMenu('alokasi')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'alokasi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Hourglass className="h-4 w-4" />
-                Alokasi Waktu
-              </button>
-              <button
-                onClick={() => setActiveMenu('modul')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'modul' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <BookOpen className="h-4 w-4" />
-                Modul Ajar RPP
-              </button>
-              <button
-                onClick={() => setActiveMenu('guru')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'guru' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                Data Guru
-              </button>
-              <button
-                onClick={() => setActiveMenu('mengajar')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'mengajar' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <BookText className="h-4 w-4" />
-                Pembagian Mengajar
-              </button>
-              <button
-                onClick={() => setActiveMenu('jadwal-mengajar')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'jadwal-mengajar' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Calendar className="h-4 w-4" />
-                Jadwal Mengajar
-              </button>
 
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Kelas & Siswa
+              {/* Dropdown Kelas & Siswa */}
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleDropdown('kelasSiswa')}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <Layers className="h-3.5 w-3.5 text-emerald-500" />
+                    Kelas & Siswa
+                  </span>
+                  {openDropdowns.kelasSiswa ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                </button>
+                {openDropdowns.kelasSiswa && (
+                  <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                    <button
+                      onClick={() => setActiveMenu('kelas')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'kelas' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Data Kelas
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('siswa-aktif')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'siswa-aktif' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Siswa Aktif
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('siswa-riwayat')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'siswa-riwayat' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Riwayat & Mutasi
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setActiveMenu('kelas')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'kelas' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Layers className="h-4 w-4" />
-                Data Kelas
-              </button>
-              <button
-                onClick={() => setActiveMenu('siswa-aktif')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'siswa-aktif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                Siswa Aktif
-              </button>
-              <button
-                onClick={() => setActiveMenu('siswa-riwayat')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'siswa-riwayat' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                Riwayat & Mutasi
-              </button>
 
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Laporan & Rekapitulasi
+              {/* Dropdown Laporan & Rekapitulasi */}
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleDropdown('rekap')}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                    Laporan & Rekapitulasi
+                  </span>
+                  {openDropdowns.rekap ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                </button>
+                {openDropdowns.rekap && (
+                  <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                    <button
+                      onClick={() => setActiveMenu('rekap-absensi')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'rekap-absensi' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Rekap Absensi
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('rekap-jurnal')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'rekap-jurnal' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Rekap Jurnal Guru
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('rekap-nilai-formatif')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'rekap-nilai-formatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Rekap Nilai Formatif
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('rekap-nilai-sumatif')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'rekap-nilai-sumatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Rekap Nilai Sumatif
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setActiveMenu('rekap-absensi')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'rekap-absensi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <ClipboardCheck className="h-4 w-4" />
-                Rekap Absensi
-              </button>
-              <button
-                onClick={() => setActiveMenu('rekap-jurnal')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'rekap-jurnal' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <BookOpen className="h-4 w-4" />
-                Rekap Jurnal Guru
-              </button>
-              <button
-                onClick={() => setActiveMenu('rekap-nilai-formatif')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'rekap-nilai-formatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Award className="h-4 w-4" />
-                Rekap Nilai Formatif
-              </button>
-              <button
-                onClick={() => setActiveMenu('rekap-nilai-sumatif')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'rekap-nilai-sumatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Award className="h-4 w-4" />
-                Rekap Nilai Sumatif
-              </button>
 
               <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
                 Export & Integrasi
@@ -1000,139 +1134,194 @@ export default function App() {
           {/* GURU & WALI KELAS MANAJEMEN */}
           {currentUser.role !== 'Admin' && (
             <>
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Profil & Jadwal
+              {/* Dropdown Profil & Jadwal */}
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleDropdown('guruProfil')}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-emerald-500" />
+                    Profil & Jadwal
+                  </span>
+                  {openDropdowns.guruProfil ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                </button>
+                {openDropdowns.guruProfil && (
+                  <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                    <button
+                      onClick={() => setActiveMenu('profil-guru')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'profil-guru' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Profil Guru Anda
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('jadwal-mengajar')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'jadwal-mengajar' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Jadwal Mengajar Anda
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setActiveMenu('profil-guru')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'profil-guru' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <User className="h-4 w-4" />
-                Profil Guru Anda
-              </button>
-              <button
-                onClick={() => setActiveMenu('jadwal-mengajar')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'jadwal-mengajar' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Calendar className="h-4 w-4" />
-                Jadwal Mengajar Anda
-              </button>
 
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Agenda Kegiatan Guru
+              {/* Dropdown Agenda Kegiatan Guru */}
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleDropdown('guruAgenda')}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                    Agenda Kegiatan Guru
+                  </span>
+                  {openDropdowns.guruAgenda ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                </button>
+                {openDropdowns.guruAgenda && (
+                  <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                    <button
+                      onClick={() => setActiveMenu('input-absensi')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'input-absensi' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Input Absen & Jurnal
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('input-jurnal')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'input-jurnal' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Jurnal Mengajar Mandiri
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setActiveMenu('input-absensi')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'input-absensi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <ClipboardCheck className="h-4 w-4" />
-                Input Absen & Jurnal
-              </button>
-              <button
-                onClick={() => setActiveMenu('input-jurnal')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'input-jurnal' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <BookOpen className="h-4 w-4" />
-                Jurnal Mengajar Mandiri
-              </button>
 
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Asesmen & Penilaian
+              {/* Dropdown Asesmen & Penilaian */}
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleDropdown('guruAsesmen')}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <Award className="h-3.5 w-3.5 text-emerald-500" />
+                    Asesmen & Penilaian
+                  </span>
+                  {openDropdowns.guruAsesmen ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                </button>
+                {openDropdowns.guruAsesmen && (
+                  <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                    <button
+                      onClick={() => setActiveMenu('input-nilai-formatif')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'input-nilai-formatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Input Nilai Formatif
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('input-nilai-sumatif')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'input-nilai-sumatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Input Nilai Sumatif
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setActiveMenu('input-nilai-formatif')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'input-nilai-formatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Award className="h-4 w-4" />
-                Input Nilai Formatif
-              </button>
-              <button
-                onClick={() => setActiveMenu('input-nilai-sumatif')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'input-nilai-sumatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Award className="h-4 w-4" />
-                Input Nilai Sumatif
-              </button>
 
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Referensi & Program
+              {/* Dropdown Referensi & Program */}
+              <div className="pt-2">
+                <button
+                  onClick={() => toggleDropdown('guruReferensi')}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
+                    Referensi & Program
+                  </span>
+                  {openDropdowns.guruReferensi ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                </button>
+                {openDropdowns.guruReferensi && (
+                  <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                    <button
+                      onClick={() => setActiveMenu('kaldik')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'kaldik' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Kalender Pendidikan
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('alokasi')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'alokasi' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Analisis Alokasi Waktu
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu('modul')}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        activeMenu === 'modul' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      Modul Ajar RPP
+                    </button>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={() => setActiveMenu('kaldik')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'kaldik' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Calendar className="h-4 w-4" />
-                Kalender Pendidikan
-              </button>
-              <button
-                onClick={() => setActiveMenu('alokasi')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'alokasi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Hourglass className="h-4 w-4" />
-                Analisis Alokasi Waktu
-              </button>
-              <button
-                onClick={() => setActiveMenu('modul')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'modul' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <BookOpen className="h-4 w-4" />
-                Modul Ajar RPP
-              </button>
             </>
           )}
 
           {/* WALI KELAS SPECIAL REKAP ACTIONS */}
           {isWaliKelas && (
-            <>
-              <div className="pt-3 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
-                Laporan Wali Kelas
-              </div>
+            <div className="pt-2">
               <button
-                onClick={() => setActiveMenu('rekap-absensi')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'rekap-absensi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
+                onClick={() => toggleDropdown('waliKelas')}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
               >
-                <ClipboardCheck className="h-4 w-4" />
-                Laporan Absensi Kelas
+                <span className="flex items-center gap-2">
+                  <ShieldAlert className="h-3.5 w-3.5 text-rose-500 animate-pulse" />
+                  Laporan Wali Kelas
+                </span>
+                {openDropdowns.waliKelas ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
               </button>
-              <button
-                onClick={() => setActiveMenu('rekap-nilai-formatif')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'rekap-nilai-formatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Award className="h-4 w-4" />
-                Rapor Formatif
-              </button>
-              <button
-                onClick={() => setActiveMenu('rekap-nilai-sumatif')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  activeMenu === 'rekap-nilai-sumatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Award className="h-4 w-4" />
-                Rapor Sumatif
-              </button>
-            </>
+              {openDropdowns.waliKelas && (
+                <div className="pl-3 mt-1.5 space-y-1 border-l-2 border-slate-800/80 ml-4 animate-fade-in">
+                  <button
+                    onClick={() => setActiveMenu('rekap-absensi')}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      activeMenu === 'rekap-absensi' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    Laporan Absensi Kelas
+                  </button>
+                  <button
+                    onClick={() => setActiveMenu('rekap-nilai-formatif')}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      activeMenu === 'rekap-nilai-formatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    Rapor Formatif
+                  </button>
+                  <button
+                    onClick={() => setActiveMenu('rekap-nilai-sumatif')}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      activeMenu === 'rekap-nilai-sumatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    Rapor Sumatif
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </nav>
 
@@ -1245,7 +1434,7 @@ export default function App() {
             </div>
 
             {/* Scrolling Nav List for Mobile Drawer */}
-            <div className="flex-1 overflow-y-auto space-y-1">
+            <div className="flex-1 overflow-y-auto space-y-2">
               <button
                 onClick={() => {
                   setActiveMenu('dashboard');
@@ -1273,192 +1462,356 @@ export default function App() {
                     <School className="h-4 w-4" />
                     Profil Madrasah
                   </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('kaldik');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'kaldik' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Kaldik Pendidikan
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('alokasi');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'alokasi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Hourglass className="h-4 w-4" />
-                    Alokasi Waktu
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('modul');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'modul' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    Modul Ajar RPP
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('guru');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'guru' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Users className="h-4 w-4" />
-                    Data Guru
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('mengajar');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'mengajar' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <BookText className="h-4 w-4" />
-                    Pembagian Mengajar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('jadwal-mengajar');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'jadwal-mengajar' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Jadwal Mengajar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('kelas');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'kelas' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Layers className="h-4 w-4" />
-                    Data Kelas
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('siswa-aktif');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'siswa-aktif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Users className="h-4 w-4" />
-                    Siswa Aktif
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('siswa-riwayat');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'siswa-riwayat' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Users className="h-4 w-4" />
-                    Riwayat & Mutasi
-                  </button>
+
+                  {/* Dropdown Akademik & Guru (Mobile) */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => toggleDropdown('akademik')}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                        Akademik & Guru
+                      </span>
+                      {openDropdowns.akademik ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                    </button>
+                    {openDropdowns.akademik && (
+                      <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                        {['kaldik', 'alokasi', 'modul', 'guru', 'mengajar', 'jadwal-mengajar'].map((m) => {
+                          const labels: Record<string, string> = {
+                            'kaldik': 'Kaldik Pendidikan',
+                            'alokasi': 'Alokasi Waktu',
+                            'modul': 'Modul Ajar RPP',
+                            'guru': 'Data Guru',
+                            'mengajar': 'Pembagian Mengajar',
+                            'jadwal-mengajar': 'Jadwal Mengajar'
+                          };
+                          return (
+                            <button
+                              key={m}
+                              onClick={() => {
+                                setActiveMenu(m);
+                                setMobileMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                                activeMenu === m ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                              }`}
+                            >
+                              {labels[m]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dropdown Kelas & Siswa (Mobile) */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => toggleDropdown('kelasSiswa')}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Layers className="h-3.5 w-3.5 text-emerald-500" />
+                        Kelas & Siswa
+                      </span>
+                      {openDropdowns.kelasSiswa ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                    </button>
+                    {openDropdowns.kelasSiswa && (
+                      <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                        {['kelas', 'siswa-aktif', 'siswa-riwayat'].map((m) => {
+                          const labels: Record<string, string> = {
+                            'kelas': 'Data Kelas',
+                            'siswa-aktif': 'Siswa Aktif',
+                            'siswa-riwayat': 'Riwayat & Mutasi'
+                          };
+                          return (
+                            <button
+                              key={m}
+                              onClick={() => {
+                                setActiveMenu(m);
+                                setMobileMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                                activeMenu === m ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                              }`}
+                            >
+                              {labels[m]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dropdown Laporan & Rekapitulasi (Mobile) */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => toggleDropdown('rekap')}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                        Laporan & Rekapitulasi
+                      </span>
+                      {openDropdowns.rekap ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                    </button>
+                    {openDropdowns.rekap && (
+                      <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                        {['rekap-absensi', 'rekap-jurnal', 'rekap-nilai-formatif', 'rekap-nilai-sumatif'].map((m) => {
+                          const labels: Record<string, string> = {
+                            'rekap-absensi': 'Rekap Absensi',
+                            'rekap-jurnal': 'Rekap Jurnal Guru',
+                            'rekap-nilai-formatif': 'Rekap Nilai Formatif',
+                            'rekap-nilai-sumatif': 'Rekap Nilai Sumatif'
+                          };
+                          return (
+                            <button
+                              key={m}
+                              onClick={() => {
+                                setActiveMenu(m);
+                                setMobileMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                                activeMenu === m ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                              }`}
+                            >
+                              {labels[m]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
               {currentUser.role !== 'Admin' && (
                 <>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('profil-guru');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'profil-guru' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <User className="h-4 w-4" />
-                    Profil Guru Anda
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('jadwal-mengajar');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'jadwal-mengajar' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Jadwal Mengajar Anda
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('input-absensi');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'input-absensi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <ClipboardCheck className="h-4 w-4" />
-                    Input Absen & Jurnal
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('input-jurnal');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'input-jurnal' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    Jurnal Mengajar Mandiri
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('input-nilai-formatif');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'input-nilai-formatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Award className="h-4 w-4" />
-                    Input Nilai Formatif
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveMenu('input-nilai-sumatif');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                      activeMenu === 'input-nilai-sumatif' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Award className="h-4 w-4" />
-                    Input Nilai Sumatif
-                  </button>
+                  {/* Dropdown Profil & Jadwal (Mobile) */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => toggleDropdown('guruProfil')}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-emerald-500" />
+                        Profil & Jadwal
+                      </span>
+                      {openDropdowns.guruProfil ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                    </button>
+                    {openDropdowns.guruProfil && (
+                      <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                        <button
+                          onClick={() => {
+                            setActiveMenu('profil-guru');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'profil-guru' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Profil Guru Anda
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveMenu('jadwal-mengajar');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'jadwal-mengajar' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Jadwal Mengajar Anda
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dropdown Agenda Kegiatan Guru (Mobile) */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => toggleDropdown('guruAgenda')}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                        Agenda Kegiatan Guru
+                      </span>
+                      {openDropdowns.guruAgenda ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                    </button>
+                    {openDropdowns.guruAgenda && (
+                      <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                        <button
+                          onClick={() => {
+                            setActiveMenu('input-absensi');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'input-absensi' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Input Absen & Jurnal
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveMenu('input-jurnal');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'input-jurnal' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Jurnal Mengajar Mandiri
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dropdown Asesmen & Penilaian (Mobile) */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => toggleDropdown('guruAsesmen')}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Award className="h-3.5 w-3.5 text-emerald-500" />
+                        Asesmen & Penilaian
+                      </span>
+                      {openDropdowns.guruAsesmen ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                    </button>
+                    {openDropdowns.guruAsesmen && (
+                      <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                        <button
+                          onClick={() => {
+                            setActiveMenu('input-nilai-formatif');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'input-nilai-formatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Input Nilai Formatif
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveMenu('input-nilai-sumatif');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'input-nilai-sumatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Input Nilai Sumatif
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dropdown Referensi & Program (Mobile) */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => toggleDropdown('guruReferensi')}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                    >
+                      <span className="flex items-center gap-2">
+                        <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
+                        Referensi & Program
+                      </span>
+                      {openDropdowns.guruReferensi ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                    </button>
+                    {openDropdowns.guruReferensi && (
+                      <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                        <button
+                          onClick={() => {
+                            setActiveMenu('kaldik');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'kaldik' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Kalender Pendidikan
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveMenu('alokasi');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'alokasi' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Analisis Alokasi Waktu
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveMenu('modul');
+                            setMobileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                            activeMenu === 'modul' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          Modul Ajar RPP
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
+              )}
+
+              {/* Laporan Wali Kelas (Mobile) */}
+              {isWaliKelas && (
+                <div className="pt-1">
+                  <button
+                    onClick={() => toggleDropdown('waliKelas')}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-all tracking-wider cursor-pointer bg-slate-950/20 rounded-lg border border-slate-800/40"
+                  >
+                    <span className="flex items-center gap-2">
+                      <ShieldAlert className="h-3.5 w-3.5 text-rose-500 animate-pulse" />
+                      Laporan Wali Kelas
+                    </span>
+                    {openDropdowns.waliKelas ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                  </button>
+                  {openDropdowns.waliKelas && (
+                    <div className="pl-3 mt-1.5 space-y-1 border-l border-slate-850 ml-4 animate-fade-in">
+                      <button
+                        onClick={() => {
+                          setActiveMenu('rekap-absensi');
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                          activeMenu === 'rekap-absensi' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        Laporan Absensi Kelas
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveMenu('rekap-nilai-formatif');
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                          activeMenu === 'rekap-nilai-formatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        Rapor Formatif
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveMenu('rekap-nilai-sumatif');
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                          activeMenu === 'rekap-nilai-sumatif' ? 'bg-emerald-600/20 text-emerald-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        Rapor Sumatif
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

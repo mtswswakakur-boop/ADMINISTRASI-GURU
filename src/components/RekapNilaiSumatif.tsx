@@ -13,9 +13,10 @@ interface RekapNilaiSumatifProps {
   siswa: Siswa[];
   kelas: Kelas[];
   tahunAjaran: string;
+  semester?: string;
 }
 
-export default function RekapNilaiSumatif({ nilaiSumatif, siswa, kelas, tahunAjaran }: RekapNilaiSumatifProps) {
+export default function RekapNilaiSumatif({ nilaiSumatif, siswa, kelas, tahunAjaran, semester = 'Ganjil' }: RekapNilaiSumatifProps) {
   const [selectedTingkat, setSelectedTingkat] = useState<'VII' | 'VIII' | 'IX' | ''>('');
   const [selectedKelasId, setSelectedKelasId] = useState('');
   const [selectedMapel, setSelectedMapel] = useState('');
@@ -98,7 +99,7 @@ export default function RekapNilaiSumatif({ nilaiSumatif, siswa, kelas, tahunAja
         <div className="text-center mb-6">
           <h2 className="text-xl font-bold uppercase tracking-wide">Laporan Rekapitulasi Nilai Sumatif Siswa (STS & ASAS)</h2>
           <h3 className="text-sm font-semibold uppercase text-slate-600 mt-1">
-            Kelas: {appliedKelasId} • Mapel: {appliedMapel} • TA: {tahunAjaran}
+            Kelas: {appliedKelasId} • Mapel: {appliedMapel} • Semester: {semester} • TA: {tahunAjaran}
           </h3>
           <div className="w-full border-b-2 border-slate-900 my-4"></div>
         </div>

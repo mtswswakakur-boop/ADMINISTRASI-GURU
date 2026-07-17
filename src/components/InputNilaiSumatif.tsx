@@ -5,23 +5,41 @@
 
 import { useState } from 'react';
 import { Award, Save, BookOpen } from 'lucide-react';
-import { NilaiSumatif, Siswa, Kelas } from '../types';
+import { NilaiSumatif, Siswa, Kelas, MengajarMapel } from '../types';
 import { MAPEL_LIST } from '../data';
 
 interface InputNilaiSumatifProps {
   nilaiSumatif: NilaiSumatif[];
   siswa: Siswa[];
   kelas: Kelas[];
+  currentUser: any;
+  mengajar: MengajarMapel[];
   onSaveNilaiSumatif: (data: NilaiSumatif[]) => void;
+  tahunAjaran?: string;
+  semester?: string;
 }
 
-export default function InputNilaiSumatif({ nilaiSumatif, siswa, kelas, onSaveNilaiSumatif }: InputNilaiSumatifProps) {
+export default function InputNilaiSumatif({
+  nilaiSumatif,
+  siswa,
+  kelas,
+  currentUser,
+  mengajar,
+  onSaveNilaiSumatif,
+  tahunAjaran = '2026/2027',
+  semester = 'Ganjil'
+}: InputNilaiSumatifProps) {
   const [selectedTingkat, setSelectedTingkat] = useState<'VII' | 'VIII' | 'IX' | ''>('');
   const [selectedKelasId, setSelectedKelasId] = useState('');
   const [selectedMapel, setSelectedMapel] = useState('');
 
   // Local grid values, key is `${nisn}-sts` or `${nisn}-asas`
   const [localGrades, setLocalGrades] = useState<{ [key: string]: string }>({});
+
+  // Filter mapel based on what is taught by the logged-in user
+  const allowedMapels = currentUser && currentUser.role !== 'Admin'
+    ? Array.from(new Set(mengajar.filter(m => m.guruId === currentUser.id).map(m => m.mapel)))
+    : MAPEL_LIST;
 
   const filteredKelasList = kelas.filter(k => !selectedTingkat || k.tingkat === selectedTingkat);
   const classStudents = siswa.filter(s => s.kelasId === selectedKelasId && s.status !== 'Mutasi Keluar');
@@ -37,7 +55,7 @@ export default function InputNilaiSumatif({ nilaiSumatif, siswa, kelas, onSaveNi
     const filteredStudents = siswa.filter(s => s.kelasId === kelasId && s.status !== 'Mutasi Keluar');
 
     filteredStudents.forEach(s => {
-      const match = nilaiSumatif.find(n => n.nisn === s.nisn && n.mapel === mapel);
+      const match = nilaiSumatif.find(n => n.nisn === s.nisn && n.mapel === mapel && (!n.tahunAjaran || n.tahunAjaran === tahunAjaran) && (!n.semester || n.semester === semester));
       gradesMap[`${s.nisn}-sts`] = match ? String(match.sts) : '';
       gradesMap[`${s.nisn}-asas`] = match ? String(match.asas) : '';
     });
@@ -56,11 +74,13 @@ export default function InputNilaiSumatif({ nilaiSumatif, siswa, kelas, onSaveNi
 
     // Build update payload
     const updatedEntries: NilaiSumatif[] = classStudents.map(s => ({
-      id: `NS-${selectedKelasId}-${s.nisn}-${selectedMapel}`,
+      id: `NS-${selectedKelasId}-${s.nisn}-${selectedMapel}-${tahunAjaran.replace('/', '-')}-${semester}`,
       nisn: s.nisn,
       nama: s.nama,
       kelasId: selectedKelasId,
       mapel: selectedMapel,
+      tahunAjaran,
+      semester,
       sts: localGrades[`${s.nisn}-sts`] !== '' ? Number(localGrades[`${s.nisn}-sts`]) : '',
       asas: localGrades[`${s.nisn}-asas`] !== '' ? Number(localGrades[`${s.nisn}-asas`]) : ''
     }));
@@ -122,10 +142,15 @@ export default function InputNilaiSumatif({ nilaiSumatif, siswa, kelas, onSaveNi
             className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-bold text-slate-800"
           >
             <option value="">-- Pilih Mapel --</option>
-            {MAPEL_LIST.map(m => (
+            {allowedMapels.map(m => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
+          {allowedMapels.length === 0 && currentUser.role !== 'Admin' && (
+            <p className="text-[10px] text-amber-600 font-semibold mt-1">
+              Anda tidak memiliki jadwal mengajar terdaftar.
+            </p>
+          )}
         </div>
       </div>
 
