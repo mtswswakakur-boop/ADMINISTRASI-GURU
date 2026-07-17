@@ -1583,6 +1583,22 @@ export default function App() {
                       </div>
                     )}
                   </div>
+
+                  <div className="pt-2 pb-1 text-[10px] font-bold uppercase text-slate-600 tracking-wider">
+                    Export & Integrasi
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveMenu('export-gs');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      activeMenu === 'export-gs' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                    }`}
+                  >
+                    <FolderSync className="h-4 w-4" />
+                    Publish Google Sheet
+                  </button>
                 </>
               )}
 
