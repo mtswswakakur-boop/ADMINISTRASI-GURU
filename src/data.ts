@@ -177,7 +177,8 @@ export const MAPEL_LIST = [
   'PJOK',
   'TIK',
   'Seni Budaya',
-  'Aswaja'
+  'Aswaja',
+  'Program Wali Kelas'
 ];
 
 export const DEFAULT_JADWAL: JadwalMengajar[] = [

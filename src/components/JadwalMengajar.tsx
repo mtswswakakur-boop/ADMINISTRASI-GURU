@@ -28,7 +28,7 @@ export default function JadwalMengajarComponent({
   const days: Array<'Sabtu' | 'Minggu' | 'Senin' | 'Selasa' | 'Rabu' | 'Kamis'> = [
     'Sabtu', 'Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis'
   ];
-  const hours = [1, 2, 3, 4, 5, 6, 7, 8];
+  const hours = [1, 2, 3, 4, 5, 6];
 
   // Filters state
   const [selectedKelasId, setSelectedKelasId] = useState<string>(kelasList[0]?.id || '');
@@ -173,7 +173,7 @@ export default function JadwalMengajarComponent({
           >
             <Printer className="h-3.5 w-3.5" /> Export CSV
           </button>
-          {isAdmin && (
+          {(isAdmin || !!currentUserId) && (
             <button
               onClick={openAddModal}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-sm"
@@ -297,8 +297,8 @@ export default function JadwalMengajarComponent({
                               </p>
                             )}
 
-                            {isAdmin && (
-                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-1 transition-all">
+                            {(isAdmin || !!currentUserId) && (
+                              <div className="absolute top-1 right-1 flex gap-1 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100">
                                 <button
                                   onClick={() => openEditModal(item)}
                                   className="p-1 bg-white hover:bg-emerald-50 text-emerald-600 rounded-md border border-slate-200 cursor-pointer shadow-xs"
