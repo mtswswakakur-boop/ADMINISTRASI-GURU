@@ -23,7 +23,9 @@ import {
   User,
   ShieldAlert,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 
 // Core State Imports
@@ -158,6 +160,66 @@ export default function App() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(() => localStorage.getItem('mts_last_synced_time'));
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
+
+  // Beautiful Custom Toast State
+  const [toast, setToast] = useState<{ message: string; visible: boolean; type: 'success' | 'info' | 'error' }>({
+    message: '',
+    visible: false,
+    type: 'info'
+  });
+
+  const triggerToast = (message: string) => {
+    let type: 'success' | 'info' | 'error' = 'info';
+    const lower = message.toLowerCase();
+    if (lower.includes('berhasil') || lower.includes('sukses') || lower.includes('ditemukan') || lower.includes('aman') || lower.includes('ditarik')) {
+      type = 'success';
+    } else if (lower.includes('gagal') || lower.includes('salah') || lower.includes('maaf') || lower.includes('tidak') || lower.includes('error')) {
+      type = 'error';
+    }
+    setToast({ message, visible: true, type });
+  };
+
+  // Intercept window.alert so that iframes (e.g. Google Sites) don't throw security errors when alerting, and render a beautiful Toast instead
+  React.useEffect(() => {
+    window.alert = (msg: string) => {
+      console.log("Custom alert intercepted:", msg);
+      triggerToast(msg);
+    };
+  }, []);
+
+  // Auto-dismiss Toast
+  React.useEffect(() => {
+    if (toast.visible) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, visible: false }));
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.visible]);
+
+  // Read ?url=... parameter from query string on mount for automatic mobile setup!
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get('url');
+    if (urlParam) {
+      const cleanUrl = decodeURIComponent(urlParam).trim();
+      if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+        handleUpdateUrl(cleanUrl);
+        // Automatically pull data
+        setTimeout(() => {
+          handlePullData(cleanUrl);
+        }, 800);
+        
+        // Clean URL parameters
+        try {
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+        } catch (e) {
+          console.warn('Failed to clean URL parameters:', e);
+        }
+      }
+    }
+  }, []);
 
   // Global useEffect to save states to localStorage whenever they change
   React.useEffect(() => {
@@ -1829,21 +1891,52 @@ export default function App() {
                   )}
                 </div>
               )}
-            </div>
 
-            <div className="border-t border-slate-800 pt-3 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400">{currentUser.nama.split(' ')[0]}</span>
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setMobileMenuOpen(false);
-                }}
-                className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
-              >
-                <LogOut className="h-3.5 w-3.5" /> Log Out
-              </button>
+              {/* Mobile Log Out Section inside Scroll Container */}
+              <div className="border-t border-slate-800/60 pt-4 mt-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                    {currentUser.nama.charAt(0)}
+                  </div>
+                  <span className="text-xs font-bold text-slate-300">{currentUser.nama.split(' ')[0]}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-xs font-bold text-rose-500 hover:text-rose-400 flex items-center gap-1.5 cursor-pointer bg-rose-500/10 px-2.5 py-1.5 rounded-lg border border-rose-500/20"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> Log Out
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification overlay */}
+      {toast.visible && (
+        <div className="fixed top-5 right-5 z-[9999] max-w-sm w-[calc(100%-2.5rem)] sm:w-80 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-4 flex items-start gap-3 animate-slide-in">
+          <div className={`p-1.5 rounded-lg flex-shrink-0 ${
+            toast.type === 'success' ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-800' :
+            toast.type === 'error' ? 'bg-rose-950/50 text-rose-400 border border-rose-800' :
+            'bg-amber-950/50 text-amber-400 border border-amber-800'
+          }`}>
+            {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> :
+             toast.type === 'error' ? <AlertTriangle className="h-4 w-4" /> :
+             <AlertTriangle className="h-4 w-4" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-white">Notifikasi Sistem</p>
+            <p className="text-xs text-slate-300 mt-1 font-semibold leading-relaxed whitespace-pre-line">{toast.message}</p>
+          </div>
+          <button
+            onClick={() => setToast(prev => ({ ...prev, visible: false }))}
+            className="text-slate-500 hover:text-slate-300 p-0.5 rounded-lg cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
     </div>
