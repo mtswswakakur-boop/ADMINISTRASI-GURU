@@ -80,6 +80,24 @@ export default function DashboardAdmin({
           </div>
         </div>
 
+        {/* Sync Warning Banner */}
+        <div className="bg-amber-50 border border-amber-250/70 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-xs">
+          <div className="space-y-1 max-w-[80%]">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              💡 Apakah data di HP dan Laptop Anda tidak sama?
+            </h4>
+            <p className="text-[11px] text-slate-600">
+              Secara bawaan, perubahan data disimpan di memori browser perangkat masing-masing. Aktifkan <strong>Integrasi Google Sheets & Backup</strong> agar data otomatis sinkron secara real-time antar perangkat.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate && onNavigate('export-gs')}
+            className="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow-xs"
+          >
+            Atur Sinkronisasi ➔
+          </button>
+        </div>
+
         {/* Metric Cards Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-xs flex items-center justify-between transition-all hover:shadow-md">

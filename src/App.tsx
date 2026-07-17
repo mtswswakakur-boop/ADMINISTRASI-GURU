@@ -551,6 +551,51 @@ export default function App() {
     ]);
   };
 
+  const handleExportBackup = () => {
+    return {
+      profil,
+      guru,
+      kelas,
+      siswa,
+      riwayatSiswa: mutasiHistory,
+      mengajar,
+      jurnal,
+      absensi,
+      nilaiFormatif,
+      nilaiSumatif,
+      alokasiWaktu: alokasi,
+      modulAjar: modul,
+      kaldik,
+      jadwal
+    };
+  };
+
+  const handleImportBackup = (backupData: any): boolean => {
+    try {
+      if (!backupData) throw new Error('Data kosong');
+      if (backupData.profil) setProfil(backupData.profil);
+      if (backupData.guru && Array.isArray(backupData.guru)) setGuru(backupData.guru);
+      if (backupData.kelas && Array.isArray(backupData.kelas)) setKelas(backupData.kelas);
+      if (backupData.siswa && Array.isArray(backupData.siswa)) setSiswa(backupData.siswa);
+      if (backupData.riwayatSiswa && Array.isArray(backupData.riwayatSiswa)) setMutasiHistory(backupData.riwayatSiswa);
+      if (backupData.mengajar && Array.isArray(backupData.mengajar)) setMengajar(backupData.mengajar);
+      if (backupData.jurnal && Array.isArray(backupData.jurnal)) setJurnal(backupData.jurnal);
+      if (backupData.absensi && Array.isArray(backupData.absensi)) setAbsensi(backupData.absensi);
+      if (backupData.nilaiFormatif && Array.isArray(backupData.nilaiFormatif)) setNilaiFormatif(backupData.nilaiFormatif);
+      if (backupData.nilaiSumatif && Array.isArray(backupData.nilaiSumatif)) setNilaiSumatif(backupData.nilaiSumatif);
+      if (backupData.alokasiWaktu && Array.isArray(backupData.alokasiWaktu)) setAlokasi(backupData.alokasiWaktu);
+      if (backupData.modulAjar && Array.isArray(backupData.modulAjar)) setModul(backupData.modulAjar);
+      if (backupData.kaldik && Array.isArray(backupData.kaldik)) setKaldik(backupData.kaldik);
+      if (backupData.jadwal && Array.isArray(backupData.jadwal)) setJadwal(backupData.jadwal);
+      
+      alert('Data cadangan (backup) berhasil diimpor!');
+      return true;
+    } catch (err: any) {
+      alert(`Gagal mengimpor data cadangan: ${err.message}`);
+      return false;
+    }
+  };
+
   const handleSaveAlokasi = (item: AlokasiWaktu) => {
     setAlokasi(prev => {
       const exists = prev.some(a => a.id === item.id);
@@ -756,6 +801,8 @@ export default function App() {
             lastSyncedTime={lastSyncedTime}
             onPull={handlePullData}
             onPush={handlePushData}
+            onExportBackup={handleExportBackup}
+            onImportBackup={handleImportBackup}
           />
         );
 

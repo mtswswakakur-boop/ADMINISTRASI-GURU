@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-import { Copy, Check, Download, Info, FileSpreadsheet, Server, FileCode, Play, RefreshCw, CloudLightning, Database, AlertCircle } from 'lucide-react';
+import { useState, ChangeEvent } from 'react';
+import { Copy, Check, Download, Info, FileSpreadsheet, Server, FileCode, Play, RefreshCw, CloudLightning, Database, AlertCircle, QrCode, Share2, Upload, Laptop, Smartphone } from 'lucide-react';
 import { CODE_GS_CONTENT, INDEX_HTML_CONTENT, JAVASCRIPT_HTML_CONTENT } from '../appsScriptFiles';
 
 interface AppsScriptExportProps {
@@ -17,6 +17,8 @@ interface AppsScriptExportProps {
   lastSyncedTime?: string | null;
   onPull?: () => void;
   onPush?: () => void;
+  onExportBackup?: () => any;
+  onImportBackup?: (data: any) => boolean;
 }
 
 export default function AppsScriptExport({
@@ -28,11 +30,52 @@ export default function AppsScriptExport({
   syncError = null,
   lastSyncedTime = null,
   onPull,
-  onPush
+  onPush,
+  onExportBackup,
+  onImportBackup
 }: AppsScriptExportProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'guide' | 'code' | 'index' | 'js'>('guide');
   const [urlInput, setUrlInput] = useState(appsScriptUrl);
+  const [showQr, setShowQr] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyShareLink = () => {
+    const shareLink = `${window.location.origin}${window.location.pathname}?url=${encodeURIComponent(appsScriptUrl)}`;
+    navigator.clipboard.writeText(shareLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleExport = () => {
+    if (onExportBackup) {
+      const data = onExportBackup();
+      const element = document.createElement("a");
+      const file = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      element.href = URL.createObjectURL(file);
+      element.download = `backup_administrasi_guru_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    }
+  };
+
+  const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (onImportBackup) {
+          onImportBackup(json);
+        }
+      } catch (err: any) {
+        alert('Gagal membaca berkas JSON: format tidak valid.');
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleSaveUrl = () => {
     if (onUpdateUrl) {
@@ -68,6 +111,107 @@ export default function AppsScriptExport({
           <p className="text-sm text-slate-500 mt-1">
             Panduan lengkap pengaturan Google Sheets dan file source code yang siap di-deploy ke Google Apps Script.
           </p>
+        </div>
+      </div>
+
+      {/* EXPLANATORY AND SYNC ADVICE CARD */}
+      <div className="mb-6 p-5 bg-amber-50/75 border border-amber-200/80 rounded-2xl">
+        <div className="flex gap-3 items-start">
+          <Smartphone className="h-6 w-6 text-amber-600 shrink-0 mt-1 hidden sm:block" />
+          <Laptop className="h-6 w-6 text-amber-600 shrink-0 mt-1 hidden sm:block" />
+          <div className="space-y-1">
+            <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+              ⚠️ Sinkronisasi Data Multi-Device (HP ⇄ Laptop)
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Secara bawaan, aplikasi ini menyimpan data di memori internal browser <strong>(localStorage)</strong> perangkat masing-masing. Sehingga jika Anda mengisi di HP, laptop Anda tidak akan otomatis sama, dan sebaliknya.
+            </p>
+            <div className="pt-2 text-xs font-semibold text-slate-800">
+              Ada dua cara mudah untuk menghubungkan / menyamakan data antar perangkat:
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+              {/* Cara 1: Google Sheets */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md uppercase">
+                  Metode 1: Google Sheets (Sangat Direkomendasikan)
+                </span>
+                <p className="text-[11px] text-slate-500">
+                  Data otomatis disimpan ke Google Spreadsheet Anda secara real-time. HP dan Laptop akan selalu tersinkronisasi 100%.
+                </p>
+                {appsScriptUrl ? (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleCopyShareLink}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        {copiedLink ? <Check className="h-3 w-3" /> : <Share2 className="h-3 w-3" />}
+                        Salin Link Sinkronisasi
+                      </button>
+                      <button
+                        onClick={() => setShowQr(prev => !prev)}
+                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-150 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        <QrCode className="h-3 w-3" />
+                        {showQr ? 'Tutup Kode QR' : 'Tampilkan Kode QR'}
+                      </button>
+                    </div>
+
+                    {showQr && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col items-center text-center space-y-2 animate-fade-in">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                            `${window.location.origin}${window.location.pathname}?url=${encodeURIComponent(appsScriptUrl)}`
+                          )}`}
+                          alt="QR Code Sinkronisasi"
+                          className="w-36 h-36 border border-slate-200 bg-white p-1 rounded-md"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="text-[10px] text-slate-500 font-medium max-w-[200px]">
+                          Pindai kode QR ini menggunakan kamera HP Anda untuk membuka aplikasi dan otomatis menghubungkan Google Sheets URL yang sama!
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-rose-600 font-semibold pt-1">
+                    *Silakan masukkan URL Apps Script di bawah untuk mengaktifkan sinkronisasi link / QR.
+                  </p>
+                )}
+              </div>
+
+              {/* Cara 2: Manual Backup JSON */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md uppercase">
+                  Metode 2: Ekspor & Impor File Cadangan
+                </span>
+                <p className="text-[11px] text-slate-500">
+                  Tanpa Google Sheets, Anda bisa mengunduh data dari HP berupa file backup, kirim ke laptop, lalu unggah/impor file tersebut di laptop.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    onClick={handleExport}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                  >
+                    <Download className="h-3 w-3" />
+                    Ekspor Backup (.json)
+                  </button>
+                  <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-250 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer relative">
+                    <Upload className="h-3 w-3" />
+                    Impor Backup (.json)
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImport}
+                      className="absolute inset-0 w-0 h-0 opacity-0 cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
 
