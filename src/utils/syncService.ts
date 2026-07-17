@@ -91,6 +91,9 @@ async function sendRequest(url: string, payload: any): Promise<any> {
  * Mengambil seluruh database dari Google Sheet
  */
 export async function fetchDatabaseFromSheet(url: string): Promise<FullDatabase> {
+  if (typeof url !== 'string') {
+    throw new Error('URL Google Apps Script tidak valid.');
+  }
   const cleanUrl = url.trim();
   // Karena doGet lebih mudah untuk mengambil data sederhana via query params
   // Tapi doPost juga bisa jika ingin lebih aman. Mari gunakan URL GET:

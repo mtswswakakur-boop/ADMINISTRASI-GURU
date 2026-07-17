@@ -110,7 +110,7 @@ export default function AppsScriptExport({
             <div className="flex gap-2">
               <button
                 disabled={syncLoading || !appsScriptUrl}
-                onClick={onPull}
+                onClick={() => onPull && onPull()}
                 className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-medium rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
@@ -118,7 +118,7 @@ export default function AppsScriptExport({
               </button>
               <button
                 disabled={syncLoading || !appsScriptUrl}
-                onClick={onPush}
+                onClick={() => onPush && onPush()}
                 className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-medium rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
               >
                 <Database className="h-3.5 w-3.5" />

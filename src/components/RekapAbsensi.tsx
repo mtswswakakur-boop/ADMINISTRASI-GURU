@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { ClipboardCheck, Search, Printer, FileSpreadsheet } from 'lucide-react';
+import { ClipboardCheck, Search, Printer, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { Absensi, Siswa, Kelas } from '../types';
 
 interface RekapAbsensiProps {
@@ -22,6 +22,67 @@ export default function RekapAbsensi({ absensi, siswa, kelas, tahunAjaran, semes
   const [printMode, setPrintMode] = useState(false);
 
   const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+  const formatIndoDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = d.getDate();
+      const monthIndex = d.getMonth();
+      const year = d.getFullYear();
+      const monthNames = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      return `${day} ${monthNames[monthIndex]} ${year}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  const getAlpaMilestones = () => {
+    const result: {
+      nisn: string;
+      nama: string;
+      totalAlpa: number;
+      milestones: {
+        count: number;
+        tanggal: string;
+      }[];
+    }[] = [];
+    
+    for (const s of classStudents) {
+      // Get all Alpa entries for this student, sorted chronologically
+      const studentAlpas = absensi
+        .filter(a => a.nisn === s.nisn && a.status === 'Alpa')
+        .sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
+        
+      if (studentAlpas.length < 6) continue;
+      
+      const milestones: { count: number; tanggal: string }[] = [];
+      studentAlpas.forEach((alpa, idx) => {
+        const alpaNumber = idx + 1;
+        if (alpaNumber % 6 === 0) {
+          milestones.push({
+            count: alpaNumber,
+            tanggal: alpa.tanggal
+          });
+        }
+      });
+      
+      if (milestones.length > 0) {
+        result.push({
+          nisn: s.nisn,
+          nama: s.nama,
+          totalAlpa: studentAlpas.length,
+          milestones
+        });
+      }
+    }
+    
+    return result;
+  };
 
   // Filter kelas options
   const filteredKelasList = kelas.filter(k => !selectedTingkat || k.tingkat === selectedTingkat);
@@ -129,6 +190,45 @@ export default function RekapAbsensi({ absensi, siswa, kelas, tahunAjaran, semes
             })}
           </tbody>
         </table>
+
+        {/* Print Section for Alpa Milestones */}
+        <div className="mt-8 avoid-break">
+          <h4 className="text-md font-bold uppercase tracking-wide mb-3 text-rose-800">Daftar Peringatan Alpa (Kelipatan 6)</h4>
+          {getAlpaMilestones().length === 0 ? (
+            <p className="text-xs text-slate-500 italic">Tidak ada siswa dengan akumulasi Alpa kelipatan 6 (minimal 6 Alpa).</p>
+          ) : (
+            <table className="w-full text-left border-collapse border border-slate-400 text-xs">
+              <thead>
+                <tr className="bg-slate-100">
+                  <th className="border border-slate-400 px-4 py-2 w-12">No</th>
+                  <th className="border border-slate-400 px-4 py-2 w-32">NISN</th>
+                  <th className="border border-slate-400 px-4 py-2">Nama Lengkap Siswa</th>
+                  <th className="border border-slate-400 px-4 py-2 text-center w-28">Total Alpa</th>
+                  <th className="border border-slate-400 px-4 py-2">Milestone Kelipatan 6 & Tanggal Terkena</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getAlpaMilestones().map((m, index) => (
+                  <tr key={m.nisn}>
+                    <td className="border border-slate-400 px-4 py-2 font-mono">{index + 1}</td>
+                    <td className="border border-slate-400 px-4 py-2 font-mono">{m.nisn}</td>
+                    <td className="border border-slate-400 px-4 py-2 font-bold">{m.nama}</td>
+                    <td className="border border-slate-400 px-4 py-2 text-center font-bold text-rose-600">{m.totalAlpa}</td>
+                    <td className="border border-slate-400 px-4 py-2">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {m.milestones.map((ms, idx) => (
+                          <span key={ms.count} className="font-semibold">
+                            Alpa Ke-{ms.count} ({formatIndoDate(ms.tanggal)}){idx < m.milestones.length - 1 ? ',' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
         <button
           onClick={() => setPrintMode(false)}
@@ -283,6 +383,65 @@ export default function RekapAbsensi({ absensi, siswa, kelas, tahunAjaran, semes
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Section: Siswa Tercatat Alpa Kelipatan 6 */}
+          <div className="mt-8 border border-rose-100 rounded-xl bg-rose-50/20 p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-rose-100 text-rose-700 rounded-lg">
+                <AlertTriangle className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Daftar Peringatan Alpa (Kelipatan 6)</h3>
+                <p className="text-xs text-slate-500">
+                  Siswa yang memiliki total ketidakhadiran tanpa keterangan (Alpa) kelipatan 6 beserta tanggal pencapaiannya.
+                </p>
+              </div>
+            </div>
+
+            {getAlpaMilestones().length === 0 ? (
+              <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white rounded-lg border border-slate-100">
+                Aman. Tidak ada siswa dengan akumulasi Alpa kelipatan 6 (minimal 6 Alpa).
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-100 rounded-lg bg-white">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-xs uppercase tracking-wider w-12">No</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-xs uppercase tracking-wider w-36">NISN</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-xs uppercase tracking-wider">Nama Lengkap Siswa</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-xs uppercase tracking-wider text-center w-28">Total Alpa Saat Ini</th>
+                      <th className="px-4 py-2.5 font-bold text-slate-700 text-xs uppercase tracking-wider">Milestone Kelipatan 6 & Tanggal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-600">
+                    {getAlpaMilestones().map((m, index) => (
+                      <tr key={m.nisn} className="hover:bg-slate-50/50 transition-all align-middle">
+                        <td className="px-4 py-3 text-slate-400 font-semibold">{index + 1}</td>
+                        <td className="px-4 py-3 font-mono text-slate-700 text-xs">{m.nisn}</td>
+                        <td className="px-4 py-3 font-bold text-slate-900">{m.nama}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-rose-100 text-rose-700 border border-rose-200">
+                            {m.totalAlpa} Alpa
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            {m.milestones.map((ms) => (
+                              <span key={ms.count} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-100 rounded-lg text-xs font-semibold">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                Alpa Ke-{ms.count}: {formatIndoDate(ms.tanggal)}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

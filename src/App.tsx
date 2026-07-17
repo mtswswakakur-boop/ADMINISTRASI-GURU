@@ -191,8 +191,8 @@ export default function App() {
   };
 
   // Pull database function
-  const handlePullData = async (urlToUse?: string) => {
-    const url = urlToUse || appsScriptUrl;
+  const handlePullData = async (urlToUse?: string | React.MouseEvent) => {
+    const url = (typeof urlToUse === 'string' ? urlToUse : null) || appsScriptUrl;
     if (!url) {
       alert('Silakan masukkan URL Web App Google Apps Script terlebih dahulu.');
       return;
