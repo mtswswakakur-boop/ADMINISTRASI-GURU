@@ -89,6 +89,7 @@ import ProfilGuru from './components/ProfilGuru';
 export default function App() {
   // Authentication states
   const [currentUser, setCurrentUser] = useState<Guru | null>(null);
+  const [isDataLoadedForUser, setIsDataLoadedForUser] = useState<string | null>(null);
   const [loginRole, setLoginRole] = useState<'Admin' | 'Guru'>('Guru');
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -221,35 +222,162 @@ export default function App() {
     }
   }, []);
 
+  // Load / Switch user-specific data when currentUser changes
+  React.useEffect(() => {
+    if (currentUser) {
+      const userId = currentUser.id;
+      const hasUserData = localStorage.getItem(`mts_${userId}_has_data`) === 'true';
+      
+      if (hasUserData) {
+        const loadItem = (key: string, defaultValue: any) => {
+          const val = localStorage.getItem(`mts_${userId}_${key}`);
+          return val ? JSON.parse(val) : defaultValue;
+        };
+        
+        setProfil(loadItem('db_profil', DEFAULT_PROFIL));
+        setGuru(loadItem('db_guru', DEFAULT_GURU));
+        setKelas(loadItem('db_kelas', DEFAULT_KELAS));
+        setSiswa(loadItem('db_siswa', DEFAULT_SISWA));
+        setMutasiHistory(loadItem('db_riwayatSiswa', INITIAL_MUTASI_HISTORY));
+        setMengajar(loadItem('db_mengajar', DEFAULT_MENGAJAR));
+        setJurnal(loadItem('db_jurnal', DEFAULT_JURNAL));
+        setAbsensi(loadItem('db_absensi', DEFAULT_ABSENSI));
+        setNilaiFormatif(loadItem('db_nilaiFormatif', DEFAULT_FORMATIF));
+        setNilaiSumatif(loadItem('db_nilaiSumatif', DEFAULT_SUMATIF));
+        setAlokasi(loadItem('db_alokasi', DEFAULT_ALOKASI));
+        setModul(loadItem('db_modul', DEFAULT_MODUL));
+        setKaldik(loadItem('db_kaldik', DEFAULT_KALDIK));
+        setJadwal(loadItem('db_jadwal', DEFAULT_JADWAL));
+        
+        setAppsScriptUrlState(localStorage.getItem(`mts_${userId}_apps_script_url`) || '');
+        setAutoSyncEnabled(localStorage.getItem(`mts_${userId}_apps_script_auto_sync`) === 'true');
+        setLastSyncedTime(localStorage.getItem(`mts_${userId}_last_synced_time`) || null);
+      } else {
+        // Migrate global data for this user on first login so they don't start empty
+        const migrateItem = (globalKey: string, defaultValue: any) => {
+          const val = localStorage.getItem(globalKey);
+          return val ? JSON.parse(val) : defaultValue;
+        };
+        
+        const mProfil = migrateItem('mts_db_profil', DEFAULT_PROFIL);
+        const mGuru = migrateItem('mts_db_guru', DEFAULT_GURU);
+        const mKelas = migrateItem('mts_db_kelas', DEFAULT_KELAS);
+        const mSiswa = migrateItem('mts_db_siswa', DEFAULT_SISWA);
+        const mMutasi = migrateItem('mts_db_riwayatSiswa', INITIAL_MUTASI_HISTORY);
+        const mMengajar = migrateItem('mts_db_mengajar', DEFAULT_MENGAJAR);
+        const mJurnal = migrateItem('mts_db_jurnal', DEFAULT_JURNAL);
+        const mAbsensi = migrateItem('mts_db_absensi', DEFAULT_ABSENSI);
+        const mFormatif = migrateItem('mts_db_nilaiFormatif', DEFAULT_FORMATIF);
+        const mSumatif = migrateItem('mts_db_nilaiSumatif', DEFAULT_SUMATIF);
+        const mAlokasi = migrateItem('mts_db_alokasi', DEFAULT_ALOKASI);
+        const mModul = migrateItem('mts_db_modul', DEFAULT_MODUL);
+        const mKaldik = migrateItem('mts_db_kaldik', DEFAULT_KALDIK);
+        const mJadwal = migrateItem('mts_db_jadwal', DEFAULT_JADWAL);
+        
+        const mUrl = localStorage.getItem('mts_apps_script_url') || '';
+        const mAutoSync = localStorage.getItem('mts_apps_script_auto_sync') === 'true';
+        const mSyncTime = localStorage.getItem('mts_last_synced_time') || null;
+
+        setProfil(mProfil);
+        setGuru(mGuru);
+        setKelas(mKelas);
+        setSiswa(mSiswa);
+        setMutasiHistory(mMutasi);
+        setMengajar(mMengajar);
+        setJurnal(mJurnal);
+        setAbsensi(mAbsensi);
+        setNilaiFormatif(mFormatif);
+        setNilaiSumatif(mSumatif);
+        setAlokasi(mAlokasi);
+        setModul(mModul);
+        setKaldik(mKaldik);
+        setJadwal(mJadwal);
+        
+        setAppsScriptUrlState(mUrl);
+        setAutoSyncEnabled(mAutoSync);
+        setLastSyncedTime(mSyncTime);
+
+        // Save immediately to mark as initialized for this user
+        localStorage.setItem(`mts_${userId}_has_data`, 'true');
+      }
+      setIsDataLoadedForUser(userId);
+    } else {
+      // User logged out - load shared global data
+      const loadGlobal = (key: string, defaultValue: any) => {
+        const val = localStorage.getItem(key);
+        return val ? JSON.parse(val) : defaultValue;
+      };
+      
+      setProfil(loadGlobal('mts_db_profil', DEFAULT_PROFIL));
+      setGuru(loadGlobal('mts_db_guru', DEFAULT_GURU));
+      setKelas(loadGlobal('mts_db_kelas', DEFAULT_KELAS));
+      setSiswa(loadGlobal('mts_db_siswa', DEFAULT_SISWA));
+      setMutasiHistory(loadGlobal('mts_db_riwayatSiswa', INITIAL_MUTASI_HISTORY));
+      setMengajar(loadGlobal('mts_db_mengajar', DEFAULT_MENGAJAR));
+      setJurnal(loadGlobal('mts_db_jurnal', DEFAULT_JURNAL));
+      setAbsensi(loadGlobal('mts_db_absensi', DEFAULT_ABSENSI));
+      setNilaiFormatif(loadGlobal('mts_db_nilaiFormatif', DEFAULT_FORMATIF));
+      setNilaiSumatif(loadGlobal('mts_db_nilaiSumatif', DEFAULT_SUMATIF));
+      setAlokasi(loadGlobal('mts_db_alokasi', DEFAULT_ALOKASI));
+      setModul(loadGlobal('mts_db_modul', DEFAULT_MODUL));
+      setKaldik(loadGlobal('mts_db_kaldik', DEFAULT_KALDIK));
+      setJadwal(loadGlobal('mts_db_jadwal', DEFAULT_JADWAL));
+      
+      setAppsScriptUrlState(localStorage.getItem('mts_apps_script_url') || '');
+      setAutoSyncEnabled(localStorage.getItem('mts_apps_script_auto_sync') === 'true');
+      setLastSyncedTime(localStorage.getItem('mts_last_synced_time') || null);
+      
+      setIsDataLoadedForUser(null);
+    }
+  }, [currentUser]);
+
   // Global useEffect to save states to localStorage whenever they change
   React.useEffect(() => {
-    localStorage.setItem('mts_db_profil', JSON.stringify(profil));
-    localStorage.setItem('mts_db_guru', JSON.stringify(guru));
-    localStorage.setItem('mts_db_kelas', JSON.stringify(kelas));
-    localStorage.setItem('mts_db_siswa', JSON.stringify(siswa));
-    localStorage.setItem('mts_db_riwayatSiswa', JSON.stringify(mutasiHistory));
-    localStorage.setItem('mts_db_mengajar', JSON.stringify(mengajar));
-    localStorage.setItem('mts_db_jurnal', JSON.stringify(jurnal));
-    localStorage.setItem('mts_db_absensi', JSON.stringify(absensi));
-    localStorage.setItem('mts_db_nilaiFormatif', JSON.stringify(nilaiFormatif));
-    localStorage.setItem('mts_db_nilaiSumatif', JSON.stringify(nilaiSumatif));
-    localStorage.setItem('mts_db_alokasi', JSON.stringify(alokasi));
-    localStorage.setItem('mts_db_modul', JSON.stringify(modul));
-    localStorage.setItem('mts_db_kaldik', JSON.stringify(kaldik));
-    localStorage.setItem('mts_db_jadwal', JSON.stringify(jadwal));
-  }, [profil, guru, kelas, siswa, mutasiHistory, mengajar, jurnal, absensi, nilaiFormatif, nilaiSumatif, alokasi, modul, kaldik, jadwal]);
+    const userId = currentUser?.id;
+    
+    // Guard against race conditions during user switching
+    if (userId && isDataLoadedForUser !== userId) {
+      return;
+    }
+    if (!userId && isDataLoadedForUser !== null) {
+      return;
+    }
+
+    const prefix = userId ? `mts_${userId}_` : 'mts_';
+
+    localStorage.setItem(`${prefix}db_profil`, JSON.stringify(profil));
+    localStorage.setItem(`${prefix}db_guru`, JSON.stringify(guru));
+    localStorage.setItem(`${prefix}db_kelas`, JSON.stringify(kelas));
+    localStorage.setItem(`${prefix}db_siswa`, JSON.stringify(siswa));
+    localStorage.setItem(`${prefix}db_riwayatSiswa`, JSON.stringify(mutasiHistory));
+    localStorage.setItem(`${prefix}db_mengajar`, JSON.stringify(mengajar));
+    localStorage.setItem(`${prefix}db_jurnal`, JSON.stringify(jurnal));
+    localStorage.setItem(`${prefix}db_absensi`, JSON.stringify(absensi));
+    localStorage.setItem(`${prefix}db_nilaiFormatif`, JSON.stringify(nilaiFormatif));
+    localStorage.setItem(`${prefix}db_nilaiSumatif`, JSON.stringify(nilaiSumatif));
+    localStorage.setItem(`${prefix}db_alokasi`, JSON.stringify(alokasi));
+    localStorage.setItem(`${prefix}db_modul`, JSON.stringify(modul));
+    localStorage.setItem(`${prefix}db_kaldik`, JSON.stringify(kaldik));
+    localStorage.setItem(`${prefix}db_jadwal`, JSON.stringify(jadwal));
+
+    if (userId) {
+      localStorage.setItem(`mts_${userId}_has_data`, 'true');
+    }
+  }, [profil, guru, kelas, siswa, mutasiHistory, mengajar, jurnal, absensi, nilaiFormatif, nilaiSumatif, alokasi, modul, kaldik, jadwal, currentUser, isDataLoadedForUser]);
 
   // Handle URL change
   const handleUpdateUrl = (url: string) => {
     const cleanUrl = url.trim();
     setAppsScriptUrlState(cleanUrl);
-    localStorage.setItem('mts_apps_script_url', cleanUrl);
+    const key = currentUser ? `mts_${currentUser.id}_apps_script_url` : 'mts_apps_script_url';
+    localStorage.setItem(key, cleanUrl);
   };
 
   // Handle AutoSync toggle
   const handleUpdateAutoSync = (enabled: boolean) => {
     setAutoSyncEnabled(enabled);
-    localStorage.setItem('mts_apps_script_auto_sync', enabled ? 'true' : 'false');
+    const key = currentUser ? `mts_${currentUser.id}_apps_script_auto_sync` : 'mts_apps_script_auto_sync';
+    localStorage.setItem(key, enabled ? 'true' : 'false');
   };
 
   // Pull database function
@@ -401,8 +529,22 @@ export default function App() {
     const cleanUsername = usernameInput.trim().toLowerCase();
     const cleanPassword = passwordInput.trim();
 
-    // Find in local database
-    const userMatch = guru.find(g => g.id === cleanUsername && g.password === cleanPassword);
+    // Prioritize checking user-specific teacher list in case password was changed
+    const userSpecificGuruStr = localStorage.getItem(`mts_${cleanUsername}_db_guru`);
+    let guruListToSearch = guru;
+    if (userSpecificGuruStr) {
+      try {
+        const parsed = JSON.parse(userSpecificGuruStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          guruListToSearch = parsed;
+        }
+      } catch (err) {
+        console.warn('Failed to parse user-specific guru list:', err);
+      }
+    }
+
+    // Find in local database or user-specific list
+    const userMatch = guruListToSearch.find(g => g.id === cleanUsername && g.password === cleanPassword);
 
     if (userMatch) {
       if (loginRole === 'Admin' && userMatch.role !== 'Admin') {
